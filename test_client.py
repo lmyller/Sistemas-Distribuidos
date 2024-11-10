@@ -1,7 +1,10 @@
 from rpc import client
-import random
+import json
 
-c = client.Client('127.0.0.1', 16000)
+with open('config.json', 'r') as file:
+    data = json.load(file)
+
+c = client.Client(data['ip'], data['port'])
 
 print(c.sum(list(range(999))))
 while True:

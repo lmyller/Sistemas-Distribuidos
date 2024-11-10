@@ -1,5 +1,9 @@
 from rpc import server
+import json
 
-server = server.Server('127.0.0.1', 16000)
+with open('config.json', 'r') as file:
+    data = json.load(file)
+
+server = server.Server(data['ip'], data['port'], data['multiprocess'])
 
 server.start()
