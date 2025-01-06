@@ -1,6 +1,5 @@
-from multiprocessing import Process, Queue, Pool
+from multiprocessing import Process, Pool
 from threading import Thread
-import time
 import socket
 import sys
 import os
@@ -73,38 +72,8 @@ class Server:
             return self.check_prime_parallel(message.split('p')[2:], n_process)
         elif 'c' in message:
             return self.check_prime(message.split('c'))
-        elif 'w' in message:
-            time.sleep(int(message[1]))
-            return message[1]
-        elif '+' in message:
-            return self.calculate_sum()
-        elif '-' in message:
-            return self.calculate_sub(message.split('-'))
-        elif '*' in message:
-            if message in self.cache:
-                return self.cache[message]
-            
-            resp = self.calculate_mul(message.split('*'))
-            self.cache[message] = resp
-            return resp
-        elif '/' in message:
-            try:
-                return self.calculate_div(message.split('/'))
-            except ZeroDivisionError:
-                return "Erro: Divisão por zero"
+       
         return None
-
-    def calculate_sum(self, numbers):
-        return sum(float(number.strip()) for number in numbers)
-    
-    def calculate_sub(self, numbers):
-        return float(numbers[0].strip()) - float(numbers[1].strip())
-    
-    def calculate_mul(self, numbers):
-        return float(numbers[0].strip()) * float(numbers[1].strip())
-        
-    def calculate_div(self, numbers):
-        return float(numbers[0].strip()) / float(numbers[1].strip())
 
     def check_prime(self, numbers):
         return [self.prime_number(int(num)) for num in numbers]
@@ -123,6 +92,7 @@ class Server:
         if number < 2:
             self.save_cache(number, False)
             return False
+        
         for i in range(2, int(number ** 0.5) + 1):
             if number % i == 0:
                 self.save_cache(number, False)
@@ -137,7 +107,7 @@ class Server:
         self.save_cache_to_disk()
 
         if sys.getsizeof(self.cache_prime) > self.size_cache_prime:
-            self.evict_oldest_entries()
+            self.remove_oldest_entries()
 
     def save_cache_to_disk(self):
         with open(self.cache_file, 'wb') as f:
@@ -151,7 +121,7 @@ class Server:
                 except (pickle.PickleError, EOFError):
                     pass
 
-    def evict_oldest_entries(self):
+    def remove_oldest_entries(self):
         while sys.getsizeof(self.cache_prime) > self.size_cache_prime and self.cache_prime:
             first = next(iter(self.cache_prime))
             del self.cache_prime[first]
