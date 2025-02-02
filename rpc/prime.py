@@ -1,18 +1,23 @@
 from multiprocessing import Process, Pool
 from threading import Thread
+from utils.generate_log import log_request
 import socket
+import ssl
+import time
 import sys
 import os
 import pickle
 
 class Server:
-    def __init__(self, addr, port, multiprocess, size_cache_prime):
+    def __init__(self, addr, port, multiprocess, size_cache_prime, certfile, keyfile):
         self.addr = addr
         self.port = port
         self.size_cache_prime = size_cache_prime
         self.multiprocess = multiprocess.lower()
         self.cache_prime = {}
         self.cache_file = 'cache_prime.pkl'
+        self.certfile = certfile
+        self.keyfile = keyfile
         self.load_cache()
 
     def start(self):
@@ -21,19 +26,22 @@ class Server:
         server_socket.bind((self.addr, self.port))
         server_socket.listen(5)
 
-        print("Servidor pronto para receber")
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+
+        print("Server ready to receive connections")
 
         while True:
             connection_socket, address = server_socket.accept()
-            print(f"Cliente conectado: {address}")
+            secure_socket = context.wrap_socket(connection_socket, server_side=True)
+            print(f"Secure connection established with: {address}")
             self.load_cache()
 
             if self.multiprocess == "process":
-                client_process = Process(target=self.connection_client, args=(connection_socket, address))
+                client_process = Process(target=self.connection_client, args=(secure_socket, address))
                 client_process.start()
-            
             elif self.multiprocess == "thread":
-                client_thread = Thread(target=self.connection_client, args=(connection_socket, address))
+                client_thread = Thread(target=self.connection_client, args=(secure_socket, address))
                 client_thread.start()
 
     def connection_client(self, connection_socket, address):
@@ -42,10 +50,15 @@ class Server:
                 message = connection_socket.recv(10000).decode()
                 
                 if not message: 
-                    print(f"Cliente {address} desconectado.")
+                    print(f"Client {address} disconnected.")
                     break
 
+                start_time = time.time()
                 result = self.calculate(message)
+                end_time = time.time()
+                response_time = end_time - start_time
+
+                log_request(address[0], 'Prime', response_time)
 
                 if result is not None:
                     if isinstance(result, list):
@@ -53,7 +66,7 @@ class Server:
                     else:
                         connection_socket.send(str(result).encode())
                 else:
-                    print("Operação inválida")
+                    print("Invalid operation")
 
             except ConnectionResetError:
                 break
@@ -72,14 +85,14 @@ class Server:
             return self.check_prime_parallel(message.split('p')[2:], n_process)
         elif 'c' in message:
             return self.check_prime(message.split('c'))
-       
+        
         return None
 
     def check_prime(self, numbers):
         return [self.prime_number(int(num)) for num in numbers]
     
     def check_prime_parallel(self, numbers, n_process):
-        with Pool(processes = n_process) as pool:
+        with Pool(processes=n_process) as pool:
             results = pool.map(self.prime_number, numbers)
         return results
 
@@ -103,7 +116,6 @@ class Server:
 
     def save_cache(self, number, is_Prime):
         self.cache_prime[number] = is_Prime
-
         self.save_cache_to_disk()
 
         if sys.getsizeof(self.cache_prime) > self.size_cache_prime:

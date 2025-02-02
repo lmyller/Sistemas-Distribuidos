@@ -1,8 +1,8 @@
-from multiprocessing import Process, Queue, Pool
+from multiprocessing import Process
 from threading import Thread
 from utils.generate_log import log_request
-import time
 import socket
+import time
 import ssl
 
 class Server:
@@ -46,14 +46,14 @@ class Server:
                     break
 
                 start_time = time.time()
-                result = self.calculate_sub(message.split('-'))
+                result = self.valida_cpf(message)
                 end_time = time.time()
                 response_time = end_time - start_time
 
-                log_request(address[0], 'Subtração', response_time)
+                log_request(address[0], 'Valida CPF', response_time)
 
                 if result is not None:
-                   connection_socket.send(str(result).encode())
+                    connection_socket.send(str(result).encode())
                 else:
                     print("Operação inválida")
 
@@ -61,6 +61,26 @@ class Server:
                 break
 
         connection_socket.close()
-    
-    def calculate_sub(self, numbers):
-        return float(numbers[0].strip()) - float(numbers[1].strip())
+
+    def valida_cpf(self, cpf):
+        cpf = ''.join(filter(str.isdigit, cpf))
+
+        if len(cpf) != 11:
+            return False
+
+        if cpf == cpf[0] * 11:
+            return False
+
+        soma = sum(int(cpf[i]) * (10 - i) for i in range(9))
+        primeiro_digito = 11 - (soma % 11)
+        if primeiro_digito >= 10:
+            primeiro_digito = 0
+
+        soma = sum(int(cpf[i]) * (11 - i) for i in range(10))
+        segundo_digito = 11 - (soma % 11)
+        if segundo_digito >= 10:
+            segundo_digito = 0
+
+        return cpf[-2:] == f"{primeiro_digito}{segundo_digito}"
+
+

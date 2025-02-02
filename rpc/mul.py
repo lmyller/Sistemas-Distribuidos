@@ -1,13 +1,18 @@
 from multiprocessing import Process
 from threading import Thread
+from utils.generate_log import log_request
+import time
 import socket
+import ssl
 
 class Server:
-    def __init__(self, addr, port, multiprocess):
+    def __init__(self, addr, port, multiprocess, certfile, keyfile):
         self.addr = addr
         self.port = port
         self.cache = {}
         self.multiprocess = multiprocess.lower()
+        self.certfile = certfile
+        self.keyfile = keyfile
 
     def start(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -15,19 +20,21 @@ class Server:
         server_socket.bind((self.addr, self.port))
         server_socket.listen(5)
 
-        print("Servidor pronto para receber")
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+
+        print("Server ready to receive connections")
 
         while True:
             connection_socket, address = server_socket.accept()
-            print(f"Cliente conectado: {address}")
-            self.load_cache()
+            secure_socket = context.wrap_socket(connection_socket, server_side=True)
+            print(f"Secure connection established with: {address}")
 
             if self.multiprocess == "process":
-                client_process = Process(target=self.connection_client, args=(connection_socket, address))
+                client_process = Process(target=self.connection_client, args=(secure_socket, address))
                 client_process.start()
-            
             elif self.multiprocess == "thread":
-                client_thread = Thread(target=self.connection_client, args=(connection_socket, address))
+                client_thread = Thread(target=self.connection_client, args=(secure_socket, address))
                 client_thread.start()
 
     def connection_client(self, connection_socket, address):
@@ -38,6 +45,8 @@ class Server:
                 if not message: 
                     print(f"Cliente {address} desconectado.")
                     break
+                
+                start_time = time.time()
 
                 if message in self.cache:
                     result = self.cache[message]
@@ -45,6 +54,11 @@ class Server:
                 else:
                     result = self.calculate_mul(message.split('*'))
                     self.cache[message] = result
+
+                end_time = time.time()
+                response_time = end_time - start_time
+
+                log_request(address[0], 'Multiplicação', response_time)
 
                 if result is not None:
                     connection_socket.send(str(result).encode())

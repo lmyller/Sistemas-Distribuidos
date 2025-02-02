@@ -8,6 +8,7 @@ def handle_client(sock, data, address):
     prime = ['127.0.0.1:3027', '127.0.0.1:3026']
     sub = ['127.0.0.1:3021', '127.0.0.1:3028']
     div = ['127.0.0.1:3025', '127.0.0.1:3029']
+    cpf = ['127.0.0.1:3030']
 
     print(f"Recebido {data} de {address}")
     data = data.decode()
@@ -26,6 +27,9 @@ def handle_client(sock, data, address):
 
     elif data == 'div':
         send(sock, address, div)
+
+    elif data == 'cpf':
+        send(sock, address, cpf)
 
 def udp_server(host='localhost', port=1200):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

@@ -1,6 +1,6 @@
 {
     "ip" : "127.0.0.1",
-    "port" : 3026,
+    "port" : 3030,
     "multiprocess" : "thread",
     "cache": 100000 
 }
